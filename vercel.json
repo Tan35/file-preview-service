@@ -2,10 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/files/:path*",
-      "destination": "/api/proxy?path=:path*"
+      "src": "/api/files/(.*)",
+      "dest": "/api/proxy?path=$1"
     }
   ],
   "headers": [

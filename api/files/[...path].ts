@@ -1,58 +1,65 @@
-import type { Context } from '@vercel/edge'
-
 export const config = {
   runtime: 'edge',
 }
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
-const BUCKET = 'public_office'
-
-export default async function handler(req: Request, ctx: Context) {
-  // Extract the file path from the URL: /api/files/uploads/xxx.docx → uploads/xxx.docx
+export default async function handler(req: Request) {
   const url = new URL(req.url)
-  const pathMatch = url.pathname.match(/^\/api\/files\/(.+)$/)
-  if (!pathMatch) {
-    return new Response('Not Found', { status: 404 })
-  }
-  const filePath = decodeURIComponent(pathMatch[1])
 
-  // Proxy request to Supabase Storage
-  const supabaseUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${filePath}`
-
-  const res = await fetch(supabaseUrl, {
-    method: req.method,
-    headers: {
-      'apikey': SUPABASE_ANON_KEY!,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY!}`,
-    },
-    // Forward body for PUT/POST (not needed for GET but keeps it generic)
-    body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-  })
-
-  // If Supabase returns error, pass it through
-  if (!res.ok) {
-    return new Response(res.body, {
-      status: res.status,
+  // Extract file path: /api/files/uploads/xxx.docx → uploads/xxx.docx
+  const prefix = '/api/files/'
+  if (!url.pathname.startsWith(prefix)) {
+    return new Response(JSON.stringify({ error: 'Invalid route' }), {
+      status: 404,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  // Stream the file back with correct Content-Type
-  const contentType = res.headers.get('Content-Type') || 'application/octet-stream'
-  const contentLength = res.headers.get('Content-Length')
-
-  const headers = new Headers({
-    'Content-Type': contentType,
-    'Cache-Control': 'public, max-age=31536000, immutable',
-    'Access-Control-Allow-Origin': '*',
-  })
-  if (contentLength) {
-    headers.set('Content-Length', contentLength)
+  const filePath = decodeURIComponent(url.pathname.slice(prefix.length))
+  if (!filePath) {
+    return new Response(JSON.stringify({ error: 'No file path' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
-  return new Response(res.body, {
-    status: 200,
-    headers,
-  })
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    return new Response(JSON.stringify({ error: 'Missing env vars', url: !!supabaseUrl, key: !!supabaseKey }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Fetch from Supabase Storage (public bucket, no auth needed for public access)
+  const targetUrl = `${supabaseUrl}/storage/v1/object/public/public_office/${filePath}`
+
+  try {
+    const res = await fetch(targetUrl)
+
+    if (!res.ok) {
+      const errText = await res.text()
+      return new Response(JSON.stringify({ error: 'Supabase error', status: res.status, detail: errText }), {
+        status: res.status,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const contentType = res.headers.get('Content-Type') || 'application/octet-stream'
+
+    return new Response(res.body, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: 'Fetch failed', message: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 }

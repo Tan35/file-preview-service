@@ -8,7 +8,7 @@ export default async function handler(req: Request) {
   // Extract file path: /api/files/uploads/xxx.docx → uploads/xxx.docx
   const prefix = '/api/files/'
   if (!url.pathname.startsWith(prefix)) {
-    return new Response(JSON.stringify({ error: 'Invalid route' }), {
+    return new Response(JSON.stringify({ error: 'Invalid route', path: url.pathname }), {
       status: 404,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -32,7 +32,7 @@ export default async function handler(req: Request) {
     })
   }
 
-  // Fetch from Supabase Storage (public bucket, no auth needed for public access)
+  // Fetch from Supabase Storage (public bucket)
   const targetUrl = `${supabaseUrl}/storage/v1/object/public/public_office/${filePath}`
 
   try {

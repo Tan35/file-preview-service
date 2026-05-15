@@ -5,18 +5,11 @@ export const config = {
 export default async function handler(req: Request) {
   const url = new URL(req.url)
 
-  // Extract file path: /api/files/uploads/xxx.docx → uploads/xxx.docx
-  const prefix = '/api/files/'
-  if (!url.pathname.startsWith(prefix)) {
-    return new Response(JSON.stringify({ error: 'Invalid route', path: url.pathname }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  // The rewrite passes the original path as a query param
+  const filePath = url.searchParams.get('path')
 
-  const filePath = decodeURIComponent(url.pathname.slice(prefix.length))
   if (!filePath) {
-    return new Response(JSON.stringify({ error: 'No file path' }), {
+    return new Response(JSON.stringify({ error: 'No file path provided' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -26,7 +19,7 @@ export default async function handler(req: Request) {
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    return new Response(JSON.stringify({ error: 'Missing env vars', url: !!supabaseUrl, key: !!supabaseKey }), {
+    return new Response(JSON.stringify({ error: 'Missing env vars' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })

@@ -57,4 +57,15 @@ export function getPreviewUrl(fileUrl: string): string {
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`
 }
 
+/**
+ * 将 Supabase 存储路径转换为代理 URL
+ * "uploads/xxx.docx" → "https://your-domain.vercel.app/api/files/uploads/xxx.docx"
+ */
+export function getProxyUrl(storagePath: string): string {
+  const base = import.meta.env.PROD
+    ? ''  // 生产环境使用相对路径（同域名）
+    : `http://localhost:${import.meta.env.VITE_PORT || 5173}`
+  return `${base}/api/files/${storagePath}`
+}
+
 // (诊断函数已移除 — 根因已定位并修复：使用UUID路径避免非ASCII字符导致S3 Invalid key)

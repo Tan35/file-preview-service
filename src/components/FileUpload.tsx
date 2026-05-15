@@ -3,6 +3,7 @@ import {
   supabase,
   isSupportedFileType,
   getPreviewUrl,
+  getProxyUrl,
   MAX_FILE_SIZE,
   FILE_EXTENSIONS,
 } from '../lib/supabase'
@@ -86,16 +87,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
         throw new Error(uploadError.message)
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('public_office')
-        .getPublicUrl(filePath)
-
-      if (!urlData?.publicUrl) {
-        throw new Error('无法获取文件公开链接')
-      }
-
-      const fileUrl = urlData.publicUrl
+      // 使用代理 URL（隐藏 Supabase 域名，自定义域名后自动生效）
+      const fileUrl = getProxyUrl(filePath)
       const previewUrl = getPreviewUrl(fileUrl)
 
       setUploadProgress(100)
